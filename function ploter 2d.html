@@ -1,0 +1,505 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta charset="utf-8">
+<meta name="viewport" content="user-scalable=0" />
+<title>Function Ploter</title>
+<script src="display_object.js"></script>
+<!--[if lte IE 8]>
+<script type="text/javascript" src="excanvas.js" ></script>
+<![endif]-->
+<style type="text/css">
+body{font-size:20px;text-align:center}
+input{font-size:20px}
+#input0{width:550px}
+#button0{min-width:120px}
+#check0{width:15px;height:15px}
+</style>
+</head>
+<body onload="bodyOnLoad()">
+
+<p><span id="inputRow" style="position:relative">
+<input id="input0" type="text" /><!--
+--><input id="button0" type="button"  value="Apply" /><!--
+--><input id="check0" type="checkbox"/><!--
+--><span
+onclick="if(check0){check0.checked=!check0.checked;repaint();}"
+>parameter equation</span>
+</span></p>
+<canvas border="1" id="canvas" width="960" height="540" style="border:1px solid #666666;position:relative"></canvas>
+<script language="javascript">
+var initFunctionName="";
+var funcArray=[];
+var unitSize0=50;
+var unitSize=unitSize0;
+var gridSize=unitSize;
+var offsetX=0,offsetY=0;
+var mouDown=false;
+var mx0=0,my0=0;
+var canvas;
+var context;
+var input0;
+var button0;
+var check0;
+
+var unitSizeStart=-1;
+var offsetXStart=0,offsetYStart=0;
+var zoom0x0,zoom0y0,zoom0x1,zoom0y1;
+var zoomtx0,zoomty0,zoomtx1,zoomty1;
+
+function bodyOnLoad(){
+	input0=document.getElementById("input0");
+	input0.value=initFunctionName;
+	
+	canvas=document.getElementById("canvas");
+	context=canvas.getContext("2d");
+	canvas.width=Number(canvas.width);
+	canvas.height=Number(canvas.height);
+	
+	button0=document.getElementById("button0");
+	button0.style.width="10%";
+	
+	check0=document.getElementById("check0");
+	
+	button0.onclick=fbutton0;
+	input0.onkeypress=finput0keypress;
+	check0.onclick=repaint;
+	
+	var inputRow=document.getElementById("inputRow");
+	inputRow.style.left=(canvas.offsetLeft-inputRow.offsetLeft)+"px";
+	//console.log(canvas.offsetLeft,inputRow.offsetLeft);
+	
+	init();
+	repaint();
+}
+
+function init(){
+	document.onmousemove=fmouseMove;
+	document.onmousedown=fmouseDown;
+	document.onmouseup=fmouseUp;
+	canvas.onmousewheel=fmouseWheel;
+	document.ontouchmove=ftouchMove;
+	document.ontouchstart=ftouchStart;
+	document.ontouchend=ftouchEnd;
+}
+
+function repaint(event){
+	//context.fillStyle="#ffffff";
+	//context.fillRect(0,0,canvas.width,canvas.height);
+	//context.fillStyle="#000000";
+	
+	context.clearRect(0,0,canvas.width,canvas.height);
+	
+	var w0=canvas.width;
+	var h0=canvas.height;
+	var cx0=parseInt((canvas.width-1)*0.5);
+	var cy0=parseInt(canvas.height*0.5);
+	var cx=cx0+offsetX;
+	var cy=cy0+offsetY;
+	
+	var xmin=-cx;
+	var ymin=-cy;
+	var xmax=xmin+w0-1;
+	var ymax=ymin+h0-1;
+	var imin=Math.ceil(xmin/gridSize);
+	var jmin=Math.ceil(ymin/gridSize);
+	var imax=Math.floor(xmax/gridSize);
+	var jmax=Math.floor(ymax/gridSize);
+	var i,j;
+	context.strokeStyle="#cccccc";
+	
+	for(j=jmin;j<=jmax;j++){
+		if(j==0)continue;
+		context.beginPath();
+		context.moveTo(0,j*gridSize+cy+0.5);
+		context.lineTo(w0,j*gridSize+cy+0.5);
+		context.stroke();
+	}
+	for(i=imin;i<=imax;i++){
+		if(i==0)continue;
+		context.beginPath();
+		context.moveTo(i*gridSize+cx+0.5,0);
+		context.lineTo(i*gridSize+cx+0.5,h0);
+		context.stroke();
+	}
+	context.strokeStyle="#000000";
+	
+	if(jmin<=0 && jmax>=0){
+		context.beginPath();
+		context.moveTo(0,cy+0.5);
+		context.lineTo(w0,cy+0.5);
+		context.stroke();
+	}
+	if(imin<=0 && imax>=0){
+		context.beginPath();
+		context.moveTo(cx+0.5,0);
+		context.lineTo(cx+0.5,h0);
+		context.stroke();
+	}
+	
+	
+	var argmode=check0.checked;
+	context.strokeStyle="#0000ff";
+	var xt,yt;
+	var jt,jtprev;
+	var isSegHead=true;
+	var argSegCount=360;
+	var argSeg=2*Math.PI/argSegCount;
+	var funcStr;
+	if(funcArray==null || funcArray.length==0){
+		return;
+	}
+	for(i=0;i<funcArray.length;i++){
+		eval("var funcArray"+i+"=function(x){return ("+funcArray[i]+")}");
+	}
+	
+	if(funcArray.length<=1 || !argmode){
+		jt=NaN;
+		context.beginPath();
+		for(i=0;i<w0;i++){
+			jtprev=jt;
+			xt=(i-cx)/unitSize;
+			yt=funcArray0(xt);
+			jt=-yt*unitSize+cy;
+			
+			if(i==0 || !(isNaN(jt) || isNaN(jtprev) || (jt<0 || jt>=h0) && (jtprev<0 || jtprev>=h0))){			
+				if(i==0){
+					context.moveTo(i,jt+0.5);
+				}else if(isSegHead){
+					context.moveTo(i-1+0.5,jtprev+0.5);
+					context.lineTo(i+0.5,jt+0.5);
+				}else{
+					context.lineTo(i+0.5,jt+0.5);
+				}
+				isSegHead=false;
+			}else{
+				isSegHead=true;
+			}
+		}
+		context.stroke();
+	}else if(funcArray.length>=2){
+		context.beginPath();
+		for(i=0;i<=argSegCount;i++){
+			jtprev=jt;
+			xt=funcArray0(i*argSeg);
+			yt=funcArray1(i*argSeg);			
+			if(i==0){
+				context.moveTo(xt*unitSize+cx+0.5,-yt*unitSize+cy+0.5);
+				isSegHead=false;
+			}else{
+				context.lineTo(xt*unitSize+cx+0.5,-yt*unitSize+cy+0.5);
+			}
+		}
+		context.stroke();
+	}
+	
+	if(funcArray.length>=2 && !argmode){
+		context.strokeStyle="#00cc00";
+		jt=NaN;
+		context.beginPath();
+		for(i=0;i<w0;i++){
+			jtprev=jt;
+			xt=(i-cx)/unitSize;
+			yt=funcArray1(xt);
+			jt=-yt*unitSize+cy;
+			if(i==0 || !(isNaN(jt) || isNaN(jtprev) || (jt<0 || jt>=h0) && (jtprev<0 || jtprev>=h0))){			
+				if(i==0){
+					context.moveTo(i+0.5,jt+0.5);
+				}else if(isSegHead){
+					context.moveTo(i-1+0.5,jtprev+0.5);
+					context.lineTo(i+0.5,jt+0.5);
+				}else{
+					context.lineTo(i+0.5,jt+0.5);
+				}
+				isSegHead=false;
+			}else{
+				isSegHead=true;
+			}
+		}
+		context.stroke();
+	}
+	
+	if(funcArray.length>=3){
+		context.strokeStyle=!argmode?"#ff00ff":"#009900";
+		jt=NaN;
+		context.beginPath();
+		for(i=0;i<w0;i++){
+			jtprev=jt;
+			xt=(i-cx)/unitSize;
+			yt=funcArray2(xt);
+			jt=-yt*unitSize+cy;
+			if(i==0 || !(isNaN(jt) || isNaN(jtprev) || (jt<0 || jt>=h0) && (jtprev<0 || jtprev>=h0))){			
+				if(i==0){
+					context.moveTo(i+0.5,jt+0.5);
+				}else if(isSegHead){
+					context.moveTo(i-1+0.5,jtprev+0.5);
+					context.lineTo(i+0.5,jt+0.5);
+				}else{
+					context.lineTo(i+0.5,jt+0.5);
+				}
+				isSegHead=false;
+			}else{
+				isSegHead=true;
+			}
+		}
+		context.stroke();
+	}
+}
+
+function fbutton0(event){
+	funcArray=String(input0.value).split(",");
+	var braceLevel=0;
+	var i,j,k,l;
+	var str;
+	i=0;
+	while(i<funcArray.length){
+		str=funcArray[i];
+		braceLevel=0;
+		for(j=0;j<str.length;j++){
+			if(str.charAt(j)=="("){
+				braceLevel++;
+			}else if(str.charAt(j)==")"){
+				braceLevel--;
+			}
+		}
+		if(braceLevel>0 && i+1<funcArray.length){
+			funcArray[i]+=","+funcArray[i+1];
+			funcArray.splice(i+1,1);
+		}else{
+			i++;
+		}
+	}
+	var mode=-1;
+	
+	for(i=0;i<funcArray.length;i++){
+		str=funcArray[i];
+		str=str.replace(/([xyz\\)])([a-z\(])/g,"$1*$2");
+		str=str.replace(/([xyz])([xyz])/g,"$1*$2");
+		str=str.replace(/([A-Z])([xyz])/g,"$1*$2");
+		str=str.replace(/([xyz])([A-Z])/g,"$1*$2");
+		str=str.replace(/(^|\W)([0-9.])+([A-Za-z])/g,"$1$2*$3");
+		str=str.replace(/([a-w][a-w0-9]*\()/g,"Math.$1");
+		str=str.replace(/(^|\W)([A-Z][A-Z0-9_]*)(\W|$)/g,"$1Math.$2$3");
+		str=str.replace(/(^|\W)Math.Math./g,"$1Math.");
+		str=str.replace(/(^|\W)Math\.P(\W|$)/g,"$1Math.PI$2");
+		str=str.replace(/(^|\W)Math\.max\*\(/g,"$1Math.max(");
+		j=str.indexOf("^");
+		mode=-1;
+		while(j>=0){
+			k=j-1;
+			l=j+1;
+			braceLevel=0;
+			mode=-1;
+			if(k>=0 && str.charAt(k).match(/[A-Za-z0-9_\.]/)){
+				mode=0;
+			}else if(k>=0 && str.charAt(k)==")"){
+				mode=1;
+				braceLevel=1;
+			}
+			if(mode==-1){
+				break;
+			}
+			k--;
+			while(k>=0){
+				if(mode==0 && !str.charAt(k).match(/[A-Za-z0-9_\.]/)){
+					break;
+				}else if(mode==1 && str.charAt(k)==")"){
+					braceLevel++;
+				}else if(mode==1 && str.charAt(k)=="("){
+					braceLevel--;
+					if(braceLevel<=0){
+						mode=0;
+					}
+				}
+				k--;
+			}
+			k++;
+			
+			if(l<str.length && str.charAt(l).match(/[A-Za-z0-9_\.]/)){
+				mode=0;
+			}else if(l<str.length && str.charAt(l)=="("){
+				mode=1;
+				braceLevel=1;
+			}
+			if(mode==-1){
+				break;
+			}
+			l++;
+			while(l<str.length){
+				if(mode==0 && str.charAt(l)=="("){
+					mode=1;
+					braceLevel=1;
+				}else if(mode==0 && !str.charAt(l).match(/[A-Za-z0-9_\.]/)){
+					break;
+				}else if(mode==1 && str.charAt(l)=="("){
+					braceLevel++;
+				}else if(mode==1 && str.charAt(l)==")"){
+					braceLevel--;
+					if(braceLevel<=0){
+						l++;
+						break;
+					}
+				}
+				l++;
+			}
+			if(k<0 || l>str.length){
+				break;
+			}
+			str=str.substring(0,k)+"Math.pow("+str.substring(k,j)+","+str.substring(j+1,l)+")"+(l<str.length?str.substring(l):"");
+			j=str.indexOf("^");
+		}
+		
+		funcArray[i]=str;
+		console.log(funcArray[i]);
+	}
+	repaint();
+}
+
+function finput0keypress(event){
+	event=event||window.event;
+	var keyCode=event.keyCode||event.which;
+	if(keyCode==13){
+		fbutton0();
+	}
+}
+
+function fmouseMove(event){
+	event=event||window.event;
+	updateMouseXY(event);
+	
+	if(mouDown){
+		offsetX=offsetXStart+Math.round(mouseX-mx0);
+		offsetY=offsetYStart+Math.round(mouseY-my0);
+		//if(document.addEventListener){
+			repaint();
+		//}
+	}
+}
+
+function fmouseDown(event){
+	event=event||window.event;
+	updateMouseXY(event);
+	if(mouseX>=canvas.offsetLeft && mouseX<canvas.offsetLeft+canvas.offsetWidth && 
+	   mouseY>=canvas.offsetTop && mouseY<canvas.offsetTop+canvas.offsetHeight){
+	   mouDown=true;
+	   mx0=mouseX;
+	   my0=mouseY;
+	   offsetXStart=offsetX;
+	   offsetYStart=offsetY;
+	   unitSizeStart=-1;
+	   event.preventDefault();
+	}
+	
+}
+
+
+function fmouseUp(event){
+	event=event||window.event;
+	updateMouseXY(event);
+	if(mouDown && !document.addEventListener){
+		repaint();
+	}
+	mouDown=false;
+}
+function fmouseWheel(event){
+	event=event||window.event;
+	if((event.detail||event.wheelDelta/40)<0){
+		if(unitSize>1 && gridSize>1){
+			unitSize--;
+			gridSize--;
+		}
+		repaint();
+	}
+	if((event.detail||event.wheelDelta/40)>0){
+		unitSize++;
+		gridSize++;
+		repaint();
+	}
+	event.preventDefault();
+}
+function ftouchStart(event){
+	event=event||window.event;
+	if(event.targetTouches.length==1){
+		fmouseDown(event.targetTouches[0]);
+	}
+	var workingPoints=event.targetTouches.length;
+	if(workingPoints>=2){
+		event.preventDefault();
+		updateMouseXY(event.targetTouches[0]);		
+	}
+	if(workingPoints>=2 &&
+	   mouseX>=canvas.offsetLeft && mouseX<canvas.offsetLeft+canvas.offsetWidth && 
+	   mouseY>=canvas.offsetTop && mouseY<canvas.offsetTop+canvas.offsetHeight){
+		event.preventDefault();
+		updateMouseXY(event.targetTouches[0]);
+		zoom0x0=event.targetTouches[0].pageX;
+		zoom0y0=event.targetTouches[0].pageY;
+		zoomtx0=event.targetTouches[0].pageX;
+		zoomty0=event.targetTouches[0].pageY;
+		zoom0x1=event.targetTouches[1].pageX;
+		zoom0y1=event.targetTouches[1].pageY;
+		zoomtx1=event.targetTouches[1].pageX;
+		zoomty1=event.targetTouches[1].pageY;
+		if(workingPoints==2){
+			unitSizeStart=unitSize;
+			offsetXStart=offsetX;
+			offsetYStart=offsetY;
+		}
+		if(workingPoints==3){
+			unitSize=unitSize0;
+			gridSize=unitSize;
+			offsetX=0;
+			offsetY=0;
+			mouDown=false;
+			repaint();
+		}
+	}
+}
+function ftouchMove(event){
+	event=event||window.event;
+	if(event.targetTouches.length==1){
+		event.preventDefault();
+		fmouseMove(event.targetTouches[0]);
+		
+	}
+	var workingPoints=event.targetTouches.length;
+	if(workingPoints>=2 && unitSizeStart>0 && mouDown){
+		event.preventDefault();
+		zoomtx0=event.targetTouches[0].pageX;
+		zoomty0=event.targetTouches[0].pageY;
+		zoomtx1=event.targetTouches[1].pageX;
+		zoomty1=event.targetTouches[1].pageY;
+		if(isNaN(zoom0x0) || isNaN(zoom0y0) || isNaN(zoom0x1) || isNaN(zoom0y1) || isNaN(zoomtx0) || isNaN(zoomty0) || isNaN(zoomtx1) || isNaN(zoomty1)){
+			return;
+		}
+		if(Math.abs(zoom0x1-zoom0x0)<50 && Math.abs(zoom0y1-zoom0y0)<50){
+			return;
+		}
+		var dx0=zoom0x1-zoom0x0;
+		var dy0=zoom0y1-zoom0y0;
+		var dxt=zoomtx1-zoomtx0;
+		var dyt=zoomty1-zoomty0;
+		unitSize=Math.round(unitSizeStart*Math.sqrt((dxt*dxt+dyt*dyt)/(dx0*dx0+dy0*dy0)));
+		if(unitSize<1 || isNaN(unitSize)){
+			unitSize=1;
+		}
+		gridSize=unitSize;
+		offsetX=offsetXStart+Math.round((zoomtx0+zoomtx1)*0.5-(zoom0x0+zoom0x1)*0.5);
+		offsetY=offsetYStart+Math.round((zoomty0+zoomty1)*0.5-(zoom0y0+zoom0y1)*0.5);
+		
+		repaint();
+	}
+}
+function ftouchEnd(event){
+	event=event||window.event;
+	if(event.targetTouches.length==1){
+		fmouseUp(event.targetTouches[0]);
+	}
+	mouDown=false;
+}
+
+</script>
+
+</body>
+</html>
